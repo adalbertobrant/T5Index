@@ -51,6 +51,19 @@ st.write(SOL.head())
 st.write("**ADA:**")
 st.write(ADA.head())
 
+# Exibir os últimos registros de cada criptomoeda
+st.write("### Últimos Registros de Cada Criptomoeda")
+st.write("**BTC:**")
+st.write(BTC.tail())
+st.write("**ETH:**")
+st.write(ETH.tail())
+st.write("**XRP:**")
+st.write(XRP.tail())
+st.write("**SOL:**")
+st.write(SOL.tail())
+st.write("**ADA:**")
+st.write(ADA.tail())
+
 # Preparar os dados para o índice
 BTC_Close = pd.DataFrame(BTC['Close'])
 ETH_Close = pd.DataFrame(ETH['Close'])
