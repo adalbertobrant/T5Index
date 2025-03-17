@@ -18,12 +18,12 @@ Por favor, selecione um intervalo de datas dentro desse limite.
 # Seleção de datas pelo usuário
 col1, col2 = st.columns(2)
 with col1:
-    start_date = st.date_input("Data de Início (Start)", value=datetime.now() - timedelta(days=365))
+    start_date = st.date_input("Data de Início (Start)", value=datetime.now() - timedelta(days=730))
 with col2:
     end_date = st.date_input("Data de Término (End)", value=datetime.now())
 
 # Validação do intervalo de datas
-if (end_date - start_date).days > 365:
+if (end_date - start_date).days > 730:
     st.error("Erro: O intervalo de datas não pode ser maior que 1 ano (365 dias).")
     st.stop()
 
