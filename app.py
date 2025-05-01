@@ -1,90 +1,114 @@
 # -*- coding: utf-8 -*-
-import streamlit as st
 import pandas as pd
-import requests
-from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
+import streamlit as st
+from datetime import datetime, timedelta
+from pycoingecko import CoinGeckoAPI
 
-st.set_page_config(layout="wide")
-st.title("T5 Index - Análise de Criptomoedas (via CoinGecko API)")
+# Inicializar a API
+cg = CoinGeckoAPI()
 
-st.write("""
-### Fonte de Dados: CoinGecko
-A API do CoinGecko permite buscar dados de até **365 dias atrás** gratuitamente e sem autenticação.
-""")
-
-# Seleção de datas
-col1, col2 = st.columns(2)
-with col1:
-    start_date = st.date_input("Data de Início", value=datetime.now() - timedelta(days=365))
-with col2:
-    end_date = st.date_input("Data de Término", value=datetime.now())
-
-# Validação
-if start_date >= end_date:
-    st.error("Erro: A data de início deve ser anterior à data de término.")
-    st.stop()
-
-# Cálculo do número de dias (CoinGecko permite até 365)
-num_days = (end_date - start_date).days
-if num_days > 365:
-    st.error("Erro: O intervalo não pode ultrapassar 365 dias.")
-    st.stop()
-
-# IDs e pesos
-coins = {
-    "bitcoin": 0.50,
-    "ethereum": 0.25,
-    "ripple": 0.10,
-    "solana": 0.10,
-    "cardano": 0.05
+# Dicionário com os ids das moedas na CoinGecko
+crypto_ids = {
+    "BTC": "bitcoin",
+    "ETH": "ethereum",
+    "XRP": "ripple",
+    "SOL": "solana",
+    "ADA": "cardano"
 }
 
-@st.cache_data(ttl=3600)
-def get_coin_data(coin_id, days):
-    url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart"
-    params = {
-        "vs_currency": "usd",
-        "days": days,
-        "interval": "daily"
-    }
-    r = requests.get(url, params=params)
-    prices = r.json().get("prices", [])
-    df = pd.DataFrame(prices, columns=["timestamp", coin_id])
-    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
-    df.set_index("timestamp", inplace=True)
-    return df
+# Título do aplicativo
+st.title('T5 Index - Análise de Criptomoedas por um índice teórico')
 
-# Download e construção do índice
-dfs = []
-for coin_id, weight in coins.items():
-    df = get_coin_data(coin_id, num_days)
-    df *= weight
-    dfs.append(df)
+# Explicação sobre a limitação da API
+st.write("""
+### Limitação da API
+A API do CoinGecko permite dados históricos, mas a granularidade pode ser diária apenas para intervalos de até 90 dias.
+""")
 
-# Unificar
-df_combined = pd.concat(dfs, axis=1)
-df_combined["CryptoIndex"] = df_combined.sum(axis=1)
+# Seleção de datas pelo usuário
+col1, col2 = st.columns(2)
+with col1:
+    start_date = st.date_input("Data de Início (Start)", value=datetime.now() - timedelta(days=30))
+with col2:
+    end_date = st.date_input("Data de Término (End)", value=datetime.now())
 
-# Normalizar para índice base 1000
-df_combined["CryptoIndex"] = df_combined["CryptoIndex"] / df_combined["CryptoIndex"].iloc[0] * 1000
+# Validação do intervalo de datas
+if (end_date - start_date).days > 90:
+    st.error("Erro: O intervalo de datas não pode ser maior que 90 dias.")
+    st.stop()
 
-# Filtrar pelo intervalo de datas real
-df_filtered = df_combined[(df_combined.index.date >= start_date) & (df_combined.index.date <= end_date)]
+# Função para obter preços históricos diários
+@st.cache_data
+def get_price_history(coin_id, vs_currency, from_date, to_date):
+    from_ts = int(datetime.combine(from_date, datetime.min.time()).timestamp())
+    to_ts = int(datetime.combine(to_date, datetime.min.time()).timestamp())
+    data = cg.get_coin_market_chart_range_by_id(id=coin_id,
+                                                 vs_currency=vs_currency,
+                                                 from_timestamp=from_ts,
+                                                 to_timestamp=to_ts)
+    prices = data['prices']
+    df = pd.DataFrame(prices, columns=["timestamp", "price"])
+    df["date"] = pd.to_datetime(df["timestamp"], unit="ms").dt.date
+    df = df.groupby("date").first()  # Um valor por dia
+    df = df.rename(columns={"price": f"{coin_id.upper()}-USD"})
+    return df[[f"{coin_id.upper()}-USD"]]
 
-# Exibir dados
-st.write("### Últimos dados disponíveis")
-st.dataframe(df_filtered.tail())
+# Baixar dados
+try:
+    BTC = get_price_history(crypto_ids["BTC"], "usd", start_date, end_date)
+    ETH = get_price_history(crypto_ids["ETH"], "usd", start_date, end_date)
+    XRP = get_price_history(crypto_ids["XRP"], "usd", start_date, end_date)
+    SOL = get_price_history(crypto_ids["SOL"], "usd", start_date, end_date)
+    ADA = get_price_history(crypto_ids["ADA"], "usd", start_date, end_date)
+except Exception as e:
+    st.error(f"Erro ao baixar os dados: {e}")
+    st.stop()
 
-# Gráfico
-st.write("### Gráfico do Índice T5")
+# Exibir os primeiros registros
+st.write("### Primeiros 10 Registros de Cada Criptomoeda")
+st.write("**BTC:**"); st.write(BTC.head(10))
+st.write("**ETH:**"); st.write(ETH.head(10))
+st.write("**XRP:**"); st.write(XRP.head(10))
+st.write("**SOL:**"); st.write(SOL.head(10))
+st.write("**ADA:**"); st.write(ADA.head(10))
+
+# Exibir os últimos registros
+st.write("### Últimos 10 Registros de Cada Criptomoeda")
+st.write("**BTC:**"); st.write(BTC.tail(10))
+st.write("**ETH:**"); st.write(ETH.tail(10))
+st.write("**XRP:**"); st.write(XRP.tail(10))
+st.write("**SOL:**"); st.write(SOL.tail(10))
+st.write("**ADA:**"); st.write(ADA.tail(10))
+
+# Preparar os dados para o índice
+df = pd.concat([BTC, ETH, XRP, SOL, ADA], axis=1).dropna()
+
+weights = {
+    "BTC": 0.50,
+    "ETH": 0.25,
+    "XRP": 0.10,
+    "SOL": 0.10,
+    "ADA": 0.05
+}
+
+df["CryptoIndex"] = (
+    df["BITCOIN-USD"] * weights["BTC"] +
+    df["ETHEREUM-USD"] * weights["ETH"] +
+    df["RIPPLE-USD"] * weights["XRP"] +
+    df["SOLANA-USD"] * weights["SOL"] +
+    df["CARDANO-USD"] * weights["ADA"]
+)
+df["CryptoIndex"] = (df["CryptoIndex"] / df["CryptoIndex"].iloc[0] * 1000)
+
+# Exibir o gráfico
+st.write("### Índice de Criptomoedas")
 fig, ax = plt.subplots(figsize=(12, 6))
-ax.plot(df_filtered.index, df_filtered["CryptoIndex"], label="T5 Index", color="blue")
-ax.set_title("T5 Index (BTC 50%, ETH 25%, XRP 10%, SOL 10%, ADA 5%)")
+ax.plot(df.index, df["CryptoIndex"], label="T5 Index", color="blue")
+ax.set_title("BTC (50%), ETH (25%), SOLANA (10%), XRP (10%), ADA (5%)")
 ax.set_xlabel("Data")
-ax.set_ylabel("Valor do Índice")
-ax.grid(True)
+ax.set_ylabel("Valor")
 ax.legend()
+ax.grid(True)
 plt.xticks(rotation=45)
 st.pyplot(fig)
-
