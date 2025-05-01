@@ -29,11 +29,15 @@ if (end_date - start_date).days > 730:
 
 # Baixar dados das criptomoedas
 try:
-    @st.cache_data(ttl=3600)
+    
     BTC = yf.download("BTC-USD", start=start_date, end=end_date, period="1d")
+    time.sleep(1200)
     ETH = yf.download("ETH-USD", start=start_date, end=end_date, period="1d")
+    time.sleep(1200)
     XRP = yf.download("XRP-USD", start=start_date, end=end_date, period="1d")
+    time.sleep(1200)
     SOL = yf.download("SOL-USD", start=start_date, end=end_date, period="1d")
+    time.sleep(1200)
     ADA = yf.download("ADA-USD", start=start_date, end=end_date, period="1d")
 except Exception as e:
     st.error(f"Erro ao baixar os dados: {e}")
