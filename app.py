@@ -29,6 +29,7 @@ if (end_date - start_date).days > 730:
 
 # Baixar dados das criptomoedas
 try:
+    @st.cache_data(ttl=3600)
     BTC = yf.download("BTC-USD", start=start_date, end=end_date, period="1d")
     ETH = yf.download("ETH-USD", start=start_date, end=end_date, period="1d")
     XRP = yf.download("XRP-USD", start=start_date, end=end_date, period="1d")
